@@ -1,0 +1,13 @@
+# Python 忽略配置
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Streamlit 忽略配置
+.streamlit/secrets.toml
+
+# 环境变量文件
+.env
