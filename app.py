@@ -3,6 +3,7 @@ import requests
 import time
 import json
 import os
+import base64
 
 # ================= 基础配置 =================
 st.set_page_config(page_title="AI 模型测试台", layout="wide")
@@ -51,8 +52,17 @@ with col1:
     elif model_type == "图片模型":
         api_url = "https://apihub.agnes-ai.com/v1/images/generations"
         model_name = st.text_input("Model Name (模型名称)", value="agnes-image-2.1-flash")
+        
+        # 新增：图生图/文生图 模式切换
+        generation_mode = st.radio("生成模式 (Generation Mode)", ["文生图 (Text-to-Image)", "图生图 (Image-to-Image)"], horizontal=True)
+        
         prompt = st.text_area("Prompt (提示词)", value="一只可爱的猫咪")
         
+        image_url_input = ""
+        if generation_mode == "图生图 (Image-to-Image)":
+            image_url_input = st.text_input("参考图片 URL (Source Image URL)", placeholder="https://example.com/image.jpg")
+            st.caption("⚠️ 提示：API 严格要求此为可公开访问的公网 http/https 链接。不支持本地 Base64 直传。")
+            
         # 定义比例与其对应的5个典型尺寸映射
         ratio_to_sizes = {
             "1:1 (方形)": {
@@ -90,20 +100,55 @@ with col1:
         size = available_sizes[selected_size_label] 
         
         payload = {
-            "model": model_name, "prompt": prompt, "size": size
+            "model": model_name, 
+            "prompt": prompt, 
+            "size": size
         }
         
+        if generation_mode == "图生图 (Image-to-Image)" and image_url_input.strip():
+            # 完全对齐官方 API Doc：使用 extra_body，并将图片 URL 放入列表
+            payload["extra_body"] = {
+                "image": [
+                    image_url_input.strip()
+                ],
+                "response_format": "url"
+            }
+            
     elif model_type == "视频模型":
         api_url = "https://apihub.agnes-ai.com/v1/videos"
         model_name = st.text_input("Model Name (模型名称)", value="agnes-video-v2.0")
-        prompt = st.text_area("Prompt (提示词)", value="比基尼美女在海边跑步")
+        
+        # 新增：图生视频/文生视频/多图生视频/首尾帧生视频 模式切换
+        video_generation_mode = st.radio("视频生成模式 (Generation Mode)", ["文生视频 (Text-to-Video)", "图生视频 (Image-to-Video)", "多图生视频 (Multi-Image-to-Video)", "首尾帧生视频 (Keyframes-to-Video)"], horizontal=True)
+        
+        # 根据不同模式提供不同的默认 Prompt
+        default_prompt = "The woman slowly turns around and looks back at the camera, natural facial expression, cinematic camera movement"
+        if video_generation_mode == "多图生视频 (Multi-Image-to-Video)":
+            default_prompt = "Create a smooth transformation scene between the two reference images, cinematic lighting, consistent character identity, natural motion"
+        elif video_generation_mode == "首尾帧生视频 (Keyframes-to-Video)":
+            default_prompt = "Generate a smooth cinematic transition between the keyframes, maintaining visual consistency and natural camera movement"
+            
+        prompt = st.text_area("Prompt (提示词)", value=default_prompt)
+        
+        video_image_url_input = ""
+        multi_video_urls = ""
+        keyframes_urls = ""
+        if video_generation_mode == "图生视频 (Image-to-Video)":
+            video_image_url_input = st.text_input("起始图片 URL (Source Image URL)", placeholder="https://example.com/image.png")
+            st.caption("提示：请提供可公开访问的图片 URL 链接")
+        elif video_generation_mode == "多图生视频 (Multi-Image-to-Video)":
+            multi_video_urls = st.text_area("多张参考图片 URL (一行一个)", placeholder="https://example.com/image1.png\nhttps://example.com/image2.png")
+            st.caption("提示：每行填写一个可公开访问的图片 URL 链接")
+        elif video_generation_mode == "首尾帧生视频 (Keyframes-to-Video)":
+            keyframes_urls = st.text_area("首尾关键帧图片 URL (首帧和尾帧各一行)", placeholder="https://example.com/keyframe1.png\nhttps://example.com/keyframe2.png")
+            st.caption("提示：请务必提供2张可公开访问的图片 URL 链接（第一行为起幅，第二行为止幅）")
         
         col_v1, col_v2 = st.columns(2)
         with col_v1:
             width = st.number_input("宽度 (Width)", value=1152)
             height = st.number_input("高度 (Height)", value=768)
         with col_v2:
-            num_frames = st.number_input("总帧数 (Num Frames)", value=241)
+            num_frames = st.number_input("总帧数 (Num Frames)", value=121)
             frame_rate = st.number_input("帧率 (Frame Rate)", value=24)
             
         payload = {
@@ -111,6 +156,23 @@ with col1:
             "width": int(width), "height": int(height),
             "num_frames": int(num_frames), "frame_rate": int(frame_rate)
         }
+        
+        if video_generation_mode == "图生视频 (Image-to-Video)" and video_image_url_input.strip():
+            payload["image"] = video_image_url_input.strip()
+        elif video_generation_mode == "多图生视频 (Multi-Image-to-Video)" and multi_video_urls.strip():
+            # 按行分割提取多个 URL
+            url_list = [url.strip() for url in multi_video_urls.strip().split('\n') if url.strip()]
+            if url_list:
+                payload["extra_body"] = {
+                    "image": url_list
+                }
+        elif video_generation_mode == "首尾帧生视频 (Keyframes-to-Video)" and keyframes_urls.strip():
+            url_list = [url.strip() for url in keyframes_urls.strip().split('\n') if url.strip()]
+            if url_list:
+                payload["extra_body"] = {
+                    "image": url_list,
+                    "mode": "keyframes"
+                }
             
     submit_button = st.button("发送并等待结果", type="primary", use_container_width=True)
     
@@ -118,7 +180,14 @@ with col1:
     st.markdown("---")
     st.markdown("#### 🔍 对应的 cURL 命令")
     
-    payload_str = json.dumps(payload, ensure_ascii=False).replace('"', '\\"')
+    # 针对 cURL 显示，如果包含超长的 base64，可以做个截断，避免卡死前端
+    display_payload = payload.copy()
+    if display_payload.get("image_url", "").startswith("data:image"):
+        img_url = display_payload["image_url"]
+        if len(img_url) > 100:
+            display_payload["image_url"] = img_url[:50] + "...[Base64 字符串太长已截断展示]..."
+            
+    payload_str = json.dumps(display_payload, ensure_ascii=False).replace('"', '\\"')
     
     curl_post = f"""curl -X POST "{api_url}" \\
 -H "Content-Type: application/json" \\
@@ -159,20 +228,52 @@ with col2:
                 with st.spinner('正在生成图片...'):
                     res = requests.post(api_url, json=payload, headers=HEADERS_POST).json()
                     
-                    if "data" in res and len(res["data"]) > 0:
-                        image_url = res["data"][0]["url"]
+                    # 记录 Debug 日志到本地文件
+                    with open("debug_response.json", "w", encoding="utf-8") as f:
+                        json.dump(res, f, ensure_ascii=False, indent=2)
                         
-                        # 如果 API 返回的 URL 没有 http 前缀，手动加上 https://
-                        if not image_url.startswith("http"):
-                            image_url = "https://" + image_url
+                    if "data" in res and len(res["data"]) > 0:
+                        image_data = res["data"][0]
+                        
+                        if "b64_json" in image_data and image_data["b64_json"]:
+                            # 渲染 Base64 图像
+                            b64_str = image_data["b64_json"]
+                            st.image(f"data:image/png;base64,{b64_str}", caption="生成的图片 (Base64)", use_container_width=True)
+                            st.success("图片已成功生成并使用 Base64 数据渲染！")
+                        elif "url" in image_data and image_data["url"]:
+                            image_url = str(image_data["url"]).strip()
                             
-                        st.image(image_url, caption="生成的图片", use_container_width=True)
-                        st.success(f"图片链接: {image_url}")
+                            # 防御性解析 1：如果 API 错误地把 base64 塞进了 url 字段
+                            if image_url.startswith("data:image"):
+                                st.image(image_url, caption="生成的图片 (Base64 from URL field)", use_container_width=True)
+                                st.success("已通过 Data URI 渲染图片！")
+                            else:
+                                # 防御性解析 2：如果 API 返回了 Markdown 格式的图片 `![alt](url)`
+                                if image_url.startswith("![") and "](" in image_url:
+                                    import re
+                                    match = re.search(r'\]\((.*?)\)', image_url)
+                                    if match:
+                                        image_url = match.group(1)
+                                
+                                # 常规 URL 处理
+                                if not image_url.startswith("http") and not image_url.startswith("//"):
+                                    image_url = "https://" + image_url
+                                elif image_url.startswith("//"):
+                                    image_url = "https:" + image_url
+                                
+                                st.image(image_url, caption="生成的图片 (URL)", use_container_width=True)
+                                st.success(f"图片链接: {image_url}")
+                        else:
+                            st.error(f"解析失败：返回的 data 中既没有 url 也没有 b64_json 字段。实际内容为: {image_data}")
                     else:
-                        st.error("生成异常，未获取到图片 URL")
+                        st.error("生成异常，未获取到图片数据")
                         
                     with st.expander("查看原始 JSON 返回", expanded=False):
-                        st.json(res)
+                        # 如果是 b64_json，展示 JSON 时截断超长的 base64，防止页面卡死
+                        display_res = res.copy()
+                        if "data" in display_res and len(display_res["data"]) > 0 and display_res["data"][0].get("b64_json"):
+                            display_res["data"][0]["b64_json"] = display_res["data"][0]["b64_json"][:50] + "...[Base64 数据过长已截断展示]..."
+                        st.json(display_res)
 
             # ----------------- 3. 视频模型逻辑 -----------------
             elif model_type == "视频模型":
@@ -188,12 +289,12 @@ with col2:
                         status.update(label="提交失败，未获取到 task_id", state="error")
                         final_json = res_create
                     else:
-                        status.update(label=f"任务已提交，Task ID: {task_id}。正在排队生成中...", state="running")
+                        status.update(label=f"任务已提交，Task ID: {task_id}。正在无限轮询排队生成中...", state="running")
                         
                         url_query = f"https://apihub.agnes-ai.com/v1/videos/{task_id}"
-                        max_retries = 60 # 最多等 10 分钟
                         
-                        for i in range(max_retries):
+                        i = 0
+                        while True:
                             res_query = requests.get(url_query, headers=HEADERS_GET).json()
                             video_state = res_query.get("state") or res_query.get("status")
                             
@@ -214,10 +315,9 @@ with col2:
                                 break
                                 
                             else:
-                                status.update(label=f"任务排队/处理中 (第 {i+1} 次查询，Task ID: {task_id})...")
+                                i += 1
+                                status.update(label=f"⏳ 任务排队/处理中... (已查询 {i} 次，每 10 秒刷新)")
                                 time.sleep(10)
-                        else:
-                            status.update(label="已达到最大等待时间，请稍后手动通过 Task ID 查询", state="error")
                 
                 # 跳出 status 框后，在页面主体直接渲染视频
                 if task_success:
