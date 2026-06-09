@@ -87,6 +87,10 @@ streamlit run app.py
 
 代码中不包含硬编码的 Token。你有两种方式提供 API Key：
 
+> 🔑 **如何获取 API Key？**
+> 请前往 Agnes AI 开放平台申请您的专属 API Key：
+> [https://platform.agnes-ai.com/settings/apiKeys](https://platform.agnes-ai.com/settings/apiKeys)
+
 **方式一：界面输入**
 启动应用后，左侧边栏会提示“请先配置 API Key”。填入你的 `sk-...` 密钥回车即可。密钥仅存在于当前浏览器内存中。
 
