@@ -1,67 +1,105 @@
 # 🚀 AI 模型综合测试台 (AI Model Tester)
 
-这是一个基于 **Streamlit** 构建的轻量级 Web 应用程序，专门用于快速测试大模型（对话）、图像生成模型以及视频生成模型。它将繁琐的终端 `cURL` 请求转化为直观、现代的图形用户界面 (GUI)。
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.20%2B-FF4B4B)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-## ✨ 核心功能
+这是一个基于 **Streamlit** 构建的轻量级、现代化的 Web 应用程序，专门用于快速测试大语言模型（LLM）、图像生成模型以及视频生成模型。
 
-*   **💬 对话模型测试**: 快速验证标准 Chat Completions 接口，清晰展示模型回复。
-*   **🎨 图片模型测试**:
-    *   支持动态选择符合直觉的图片比例 (1:1 方形, 16:9 横屏, 9:16 竖屏)。
-    *   两级联动：自动映射最佳分辨率 (基础到极清)，告别手动计算像素。
-    *   自动修复返回结果中缺失协议头的图片链接，并在界面上直接预览。
-*   **🎬 视频模型测试**:
-    *   完美处理视频生成的**异步排队逻辑**。
-    *   内置进度轮询机制 (Polling)，界面实时展示任务排队与处理进度。
-    *   任务完成后，自动提取 `remixed_from_video_id` 并在界面展开播放。
-*   **🔒 安全为先**: API Key 零硬编码！支持通过侧边栏密码框安全输入，或读取系统环境变量，彻底杜绝密钥泄露风险。
-*   **👨‍💻 开发者友好**:
-    *   随着 UI 参数变动，**实时生成对应的 cURL 命令行**，一键复制用于终端或其他代码。
-    *   保留原始 JSON API 响应的折叠面板，方便底层数据 Debug。
+它将原本繁琐的终端 `cURL` 请求转化为直观的图形用户界面 (GUI)，让 AI 接口的调试和效果验证变得前所未有地简单。
 
-## 🛠️ 安装指南
+---
 
-**1. 克隆仓库**
+## ✨ 核心功能亮点
+
+### 1. 💬 对话模型 (Chat Completions)
+*   **支持模型**: 默认配置 `agnes-2.0-flash`。
+*   **特性**: 快速验证文本生成与对话能力，响应结果清晰渲染，支持长文本阅读。
+
+### 2. 🎨 图片模型 (Image Generations)
+*   **支持模型**: 默认配置 `agnes-image-2.1-flash`。
+*   **特性**: 
+    *   **人性化尺寸选择**: 抛弃繁琐的像素输入，提供直观的比例选择（1:1 方形、16:9 横屏、9:16 竖屏）。
+    *   **智能联动**: 选择比例后自动推荐该比例下的 5 种典型分辨率（从基础到极清）。
+    *   **容错处理**: 自动检测并修复 API 返回结果中可能缺失的 `https://` 协议头，确保图片能在网页中完美预览。
+
+### 3. 🎬 视频模型 (Video Generations)
+*   **支持模型**: 默认配置 `agnes-video-v2.0`。
+*   **特性**:
+    *   **异步任务处理**: 完美适配视频生成的“提交任务 -> 轮询排队 -> 获取结果”的异步工作流。
+    *   **实时状态反馈**: 界面提供动态的进度指示器，每 10 秒自动查询任务状态。
+    *   **自动解析播放**: 任务完成后，自动从返回的 JSON 中精准提取 `remixed_from_video_id` 视频链接，并直接在界面中展开播放。
+
+### 4. 👨‍💻 开发者专属工具
+*   **实时 cURL 生成器**: 当你在界面上调整任何参数（修改提示词、切换分辨率等），界面下方会自动、实时生成对应的标准 `cURL` 命令行。你可以一键复制，直接粘贴到终端或代码中使用。
+*   **JSON 调试面板**: 每次请求后，无论成功或失败，都会提供一个可折叠的原始 JSON 数据面板，方便开发者核对底层字段。
+*   **无硬编码密钥**: 彻底杜绝 API Key 泄露风险！支持通过侧边栏密码框安全输入，或读取操作系统的环境变量。
+
+---
+
+## 🛠️ 安装与运行指南
+
+### 环境要求
+*   Python 3.8 或以上版本
+*   Git
+
+### 1. 克隆项目
 ```bash
-git clone https://github.com/您的用户名/llm-test.git
+git clone https://github.com/adamli008/llm-test.git
 cd llm-test
 ```
 
-**2. 创建虚拟环境 (推荐)**
+### 2. 创建并激活虚拟环境 (强烈推荐)
 ```bash
+# 创建虚拟环境
 python -m venv venv
-source venv/bin/activate  # macOS/Linux 环境
-# venv\Scripts\activate  # Windows 环境
+
+# 激活虚拟环境 (macOS/Linux)
+source venv/bin/activate
+
+# 激活虚拟环境 (Windows)
+# venv\Scripts\activate
 ```
 
-**3. 安装项目依赖**
+### 3. 安装依赖
 ```bash
 pip install -r requirements.txt
 ```
 
-## 🚀 使用说明
-
-**1. 启动 Web 服务**
+### 4. 启动应用
 ```bash
 streamlit run app.py
 ```
-运行该命令后，浏览器会自动打开应用地址 (通常为 `http://localhost:8501`)。
+运行后，你的默认浏览器会自动打开 `http://localhost:8501`。
 
-**2. 配置 API Key**
-为了保护您的账户安全，应用默认不内置 Key，您可以通过以下两种方式提供：
-*   **网页内输入 (推荐)**: 界面启动后，在网页**左侧边栏**的安全输入框中，填入您的 API Key 即可解锁界面。
-*   **环境变量**: 如果您不想每次都输入，可以在启动前设置环境变量：
-    ```bash
-    export AGNES_API_KEY="sk-您的API_KEY"
-    streamlit run app.py
-    ```
+---
 
-**3. 开始体验**
-*   在左侧配置面板中选择您要测试的**模型类型**（对话模型 / 图片模型 / 视频模型）。
-*   根据模型类型的不同，下方会动态显示对应的参数控制台。
-*   点击底部的 **“发送并等待结果”**。
-*   在右侧面板实时查看处理状态，并欣赏最终生成的媒体结果！
+## 🔐 配置 API Key
 
-## 📝 依赖与技术栈
-*   `Python 3.x`
-*   `Streamlit` - 构建交互式 UI
-*   `Requests` - 处理底层 HTTP 通信
+为了保护你的账户安全，代码中没有硬编码任何 Token。你有两种方式提供 API Key：
+
+**方式一：界面输入（最简单）**
+启动应用后，左侧边栏会提示“请先配置 API Key”。在密码框中填入你的 `sk-...` 密钥，按下回车即可解锁全部界面。此方式密钥只存在于当前浏览器内存中，刷新后需重新输入，绝对安全。
+
+**方式二：环境变量（最方便）**
+如果你不想每次启动都输入，可以在启动应用前，在终端中配置环境变量：
+```bash
+export AGNES_API_KEY="sk-你的真实API_KEY"
+streamlit run app.py
+```
+
+---
+
+## 💡 常见问题 (FAQ)
+
+**Q: 执行 `git push` 时报错 `Failed to connect to github.com port 443` 怎么办？**
+A: 这是由于国内网络环境导致 Git 无法直连 GitHub。如果你正在使用代理软件（如 Clash，默认端口 7890），可以在终端中为 Git 设置本地代理：
+```bash
+git config --global http.proxy http://127.0.0.1:7890
+git config --global https.proxy http://127.0.0.1:7890
+```
+推送成功后，如需取消代理可执行：
+```bash
+git config --global --unset http.proxy
+git config --global --unset https.proxy
+```
