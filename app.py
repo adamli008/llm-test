@@ -8,6 +8,10 @@ import base64
 # ================= 基础配置 =================
 st.set_page_config(page_title="AI 模型测试台", layout="wide")
 
+# 初始化对话上下文缓存
+if "chat_messages" not in st.session_state:
+    st.session_state.chat_messages = []
+
 # 从环境变量获取，或者在侧边栏让用户输入
 API_KEY = os.environ.get("AGNES_API_KEY", "")
 
@@ -42,11 +46,27 @@ with col1:
     
     if model_type == "对话模型":
         api_url = "https://apihub.agnes-ai.com/v1/chat/completions"
-        model_name = st.text_input("Model Name (模型名称)", value="agnes-2.0-flash")
-        prompt = st.text_area("User Content (用户输入)", value="你好")
+        
+        col_m1, col_m2 = st.columns([3, 1])
+        with col_m1:
+            model_name = st.text_input("Model Name (模型名称)", value="agnes-2.0-flash")
+        with col_m2:
+            st.write("") # Spacer
+            st.write("") # Spacer
+            if st.button("🗑️ 清空记忆", use_container_width=True):
+                st.session_state.chat_messages = []
+                st.rerun()
+
+        prompt = st.text_area("User Content (发送新消息)", value="你好")
+        
+        # 将历史记录与新输入合并，生成给 API 调用的上下文
+        current_msgs = st.session_state.chat_messages.copy()
+        if prompt.strip():
+            current_msgs.append({"role": "user", "content": prompt.strip()})
+            
         payload = {
             "model": model_name,
-            "messages": [{"role": "user", "content": prompt}]
+            "messages": current_msgs
         }
         
     elif model_type == "图片模型":
@@ -206,25 +226,44 @@ with col1:
 with col2:
     st.header("💻 处理结果")
     
-    if submit_button:
-        try:
-            # ----------------- 1. 对话模型逻辑 -----------------
-            if model_type == "对话模型":
+    try:
+        # ----------------- 1. 对话模型逻辑 -----------------
+        if model_type == "对话模型":
+            
+            # 发送消息并合并上下文
+            if submit_button and prompt.strip():
+                st.session_state.chat_messages.append({"role": "user", "content": prompt.strip()})
+                payload["messages"] = st.session_state.chat_messages
+                
                 with st.spinner('正在请求对话模型...'):
                     res = requests.post(api_url, json=payload, headers=HEADERS_POST).json()
                     
                     if "choices" in res:
                         reply = res["choices"][0]["message"]["content"]
+                        st.session_state.chat_messages.append({"role": "assistant", "content": reply})
                         st.success("请求成功！")
-                        st.info(reply)
                     else:
                         st.error("请求发生异常，未获取到回复内容。")
+                        if len(st.session_state.chat_messages) > 0:
+                            st.session_state.chat_messages.pop() # 移除失败的最后一条消息
                     
                     with st.expander("查看原始 JSON 返回", expanded=False):
                         st.json(res)
+            
+            # 渲染记忆面板：使用原生的 chat_message 组件
+            st.markdown("### 💬 会话上下文")
+            if len(st.session_state.chat_messages) == 0:
+                st.info("👆 记忆为空。请在左侧发送新消息以开启多轮对话。")
+            else:
+                chat_container = st.container(height=600)
+                with chat_container:
+                    for msg in st.session_state.chat_messages:
+                        with st.chat_message(msg["role"]):
+                            st.markdown(msg["content"])
 
-            # ----------------- 2. 图片模型逻辑 -----------------
-            elif model_type == "图片模型":
+        # ----------------- 2. 图片模型逻辑 -----------------
+        elif model_type == "图片模型":
+            if submit_button:
                 with st.spinner('正在生成图片...'):
                     res = requests.post(api_url, json=payload, headers=HEADERS_POST).json()
                     
@@ -275,8 +314,9 @@ with col2:
                             display_res["data"][0]["b64_json"] = display_res["data"][0]["b64_json"][:50] + "...[Base64 数据过长已截断展示]..."
                         st.json(display_res)
 
-            # ----------------- 3. 视频模型逻辑 -----------------
-            elif model_type == "视频模型":
+        # ----------------- 3. 视频模型逻辑 -----------------
+        elif model_type == "视频模型":
+            if submit_button:
                 final_video_url = None
                 final_json = None
                 task_success = False
@@ -331,6 +371,6 @@ with col2:
                 if final_json is not None:
                     with st.expander("查看原始 JSON 返回", expanded=False):
                         st.json(final_json)
-                            
-        except Exception as e:
-            st.error(f"发生网络请求错误或代码异常: {e}")
+                        
+    except Exception as e:
+        st.error(f"发生网络请求错误或代码异常: {e}")
