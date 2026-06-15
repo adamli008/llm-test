@@ -1,2 +1,2 @@
-export AGNES_API_KEY="sk-mR1qlhmOPocqyQBsQB92XJyP0ddDeILixcQ0GaqlXfZTybSH"
+#!/bin/bash
 streamlit run app.py
