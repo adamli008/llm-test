@@ -78,10 +78,24 @@ with col1:
         
         prompt = st.text_area("Prompt (提示词)", value="一只可爱的猫咪")
         
+        import base64
+        
         image_url_input = ""
+        base64_image = ""
+        
         if generation_mode == "图生图 (Image-to-Image)":
-            image_url_input = st.text_input("参考图片 URL (Source Image URL)", placeholder="https://example.com/image.jpg")
-            st.caption("⚠️ 提示：API 严格要求此为可公开访问的公网 http/https 链接。不支持本地 Base64 直传。")
+            st.write("**传入参考图片** (本地上传或输入URL均可，优先使用本地)")
+            col_img_up1, col_img_up2 = st.columns(2)
+            with col_img_up1:
+                uploaded_image = st.file_uploader("📂 本地图片上传", type=["png", "jpg", "jpeg"])
+                if uploaded_image is not None:
+                    bytes_data = uploaded_image.getvalue()
+                    ext = uploaded_image.name.split('.')[-1].lower()
+                    mime = "image/png" if ext == "png" else "image/jpeg"
+                    base64_image = f"data:{mime};base64,{base64.b64encode(bytes_data).decode('utf-8')}"
+                    st.success("✅ 本地图片已读取 (Base64)")
+            with col_img_up2:
+                image_url_input = st.text_input("🔗 或输入参考图片 URL", placeholder="https://example.com/image.jpg")
             
         # 定义比例与其对应的5个典型尺寸映射
         ratio_to_sizes = {
@@ -125,14 +139,16 @@ with col1:
             "size": size
         }
         
-        if generation_mode == "图生图 (Image-to-Image)" and image_url_input.strip():
-            # 完全对齐官方 API Doc：使用 extra_body，并将图片 URL 放入列表
-            payload["extra_body"] = {
-                "image": [
-                    image_url_input.strip()
-                ],
-                "response_format": "url"
-            }
+        if generation_mode == "图生图 (Image-to-Image)":
+            img_param = base64_image if base64_image else image_url_input.strip()
+            if img_param:
+                # 完全对齐官方 API Doc：使用 extra_body，并将图片(Base64或URL)放入列表
+                payload["extra_body"] = {
+                    "image": [
+                        img_param
+                    ],
+                    "response_format": "url"
+                }
             
     elif model_type == "视频模型":
         api_url = "https://apihub.agnes-ai.com/v1/videos"
