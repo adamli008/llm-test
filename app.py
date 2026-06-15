@@ -264,8 +264,11 @@ with col2:
         # ----------------- 2. 图片模型逻辑 -----------------
         elif model_type == "图片模型":
             if submit_button:
+                start_time = time.time()
                 with st.spinner('正在生成图片...'):
                     res = requests.post(api_url, json=payload, headers=HEADERS_POST).json()
+                    end_time = time.time()
+                    cost_time = end_time - start_time
                     
                     # 记录 Debug 日志到本地文件
                     with open("debug_response.json", "w", encoding="utf-8") as f:
@@ -273,6 +276,9 @@ with col2:
                         
                     if "data" in res and len(res["data"]) > 0:
                         image_data = res["data"][0]
+                        
+                        # 仅展示生成耗时
+                        st.caption(f"⏱️ **耗时:** `{cost_time:.2f}` 秒")
                         
                         if "b64_json" in image_data and image_data["b64_json"]:
                             # 渲染 Base64 图像
@@ -317,6 +323,7 @@ with col2:
         # ----------------- 3. 视频模型逻辑 -----------------
         elif model_type == "视频模型":
             if submit_button:
+                start_time = time.time()
                 final_video_url = None
                 final_json = None
                 task_success = False
@@ -361,6 +368,12 @@ with col2:
                 
                 # 跳出 status 框后，在页面主体直接渲染视频
                 if task_success:
+                    end_time = time.time()
+                    cost_time = end_time - start_time
+                    
+                    # 仅展示生成耗时
+                    st.caption(f"⏱️ **耗时:** `{cost_time:.2f}` 秒")
+                        
                     if final_video_url:
                         st.video(final_video_url)
                         st.success(f"视频链接: {final_video_url}")

@@ -10,4 +10,4 @@ ENV/
 .streamlit/secrets.toml
 
 # 环境变量文件
-.env
+.envdebug_response.json
